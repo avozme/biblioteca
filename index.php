@@ -41,8 +41,8 @@
 
         // --------------------------------- PROCESAR FORMULARIO LOGIN -----------------------------------
         public function procesarFormLogin() {
-            $username = $_REQUEST["username"];
-            $pass = $_REQUEST["pass"];
+            $username = $this->filtrarEntrada($_REQUEST["username"]);
+            $pass = $this->filtrarEntrada($_REQUEST["pass"]);
             $resultado = $this->user->checkLogin($username, $pass);
             if ($resultado != null) {
                 // El usuario y la contraseña existen. Guardamos su id y username como variables de sesión.
@@ -91,12 +91,12 @@
             // Comprobamos si el usuario está logueado
             if (isset($_SESSION["idUser"])) {
                 // Primero, recuperamos todos los datos del formulario
-                $titulo = $_REQUEST["titulo"];
-                $genero = $_REQUEST["genero"];
-                $pais = $_REQUEST["pais"];
-                $ano = $_REQUEST["ano"];
-                $numPaginas = $_REQUEST["numPaginas"];
-                $autores = $_REQUEST["autor"];  // Así debería quedarse cuando los autores estén implementados 
+                $titulo = $this->filtrarEntrada($_REQUEST["titulo"]);
+                $genero = $this->filtrarEntrada($_REQUEST["genero"]);
+                $pais = $this->filtrarEntrada($_REQUEST["pais"]);
+                $ano = $this->filtrarEntrada($_REQUEST["ano"]);
+                $numPaginas = $this->filtrarEntrada($_REQUEST["numPaginas"]);
+                $autores = $this->filtrarEntrada($_REQUEST["autor"]);  // Así debería quedarse cuando los autores estén implementados 
                 
                 // Le pedimos al modelo que guarde el libro en la BD
                 $result = $this->libro->insert($titulo, $genero, $pais, $ano, $numPaginas);
@@ -115,6 +115,8 @@
                     // Si la inserción del libro ha fallado, mostramos mensaje de error
                     $data["error"] = "Error al insertar el libro";
                 }
+                $data["listaLibros"] = $this->libro->getAll();
+                View::render("libro/all", $data);
             }
             else {
                 // Usuario no logueado: Error de permisos
@@ -130,7 +132,7 @@
             // Comprobamos si el usuario está logueado
             if (isset($_SESSION["idUser"])) {
                 // Recuperamos el id del libro que hay que borrar
-                $idLibro = $_REQUEST["idLibro"];
+                $idLibro = $this->filtrarEntrada($_REQUEST["idLibro"]);
                 // Pedimos al modelo que intente borrar el libro
                 $result = $this->libro->delete($idLibro);
                 // Comprobamos si el borrado ha tenido éxito
@@ -177,13 +179,13 @@
             // Comprobamos si el usuario está logueado
             if (isset($_SESSION["idUser"])) {
                 // Primero, recuperamos todos los datos del formulario
-                $idLibro = $_REQUEST["idLibro"];
-                $titulo = $_REQUEST["titulo"];
-                $genero = $_REQUEST["genero"];
-                $pais = $_REQUEST["pais"];
-                $ano = $_REQUEST["ano"];
-                $numPaginas = $_REQUEST["numPaginas"];
-                $autores = $_REQUEST["autor"];
+                $idLibro = $this->filtrarEntrada($_REQUEST["idLibro"]);
+                $titulo = $this->filtrarEntrada($_REQUEST["titulo"]);
+                $genero = $this->filtrarEntrada($_REQUEST["genero"]);
+                $pais = $this->filtrarEntrada($_REQUEST["pais"]);
+                $ano = $this->filtrarEntrada($_REQUEST["ano"]);
+                $numPaginas = $this->filtrarEntrada($_REQUEST["numPaginas"]);
+                $autores = $this->filtrarEntrada($_REQUEST["autor"]);
 
                 $data["info"] = "";
                 $data["error"] = "";
@@ -220,7 +222,7 @@
 
         public function buscarLibros() {
             // Recuperamos el texto de búsqueda de la variable de formulario
-            $textoBusqueda = $_REQUEST["textoBusqueda"];
+            $textoBusqueda = $this->filtrarEntrada($_REQUEST["textoBusqueda"]);
             // Buscamos los libros que coinciden con la búsqueda
             $data["listaLibros"] = $this->libro->search($textoBusqueda);
             $data["info"] = "Resultados de la búsqueda: <i>$textoBusqueda</i>";
@@ -251,9 +253,9 @@
         public function insertarAutor() {
             // Comprobamos si el usuario está logueado
             if (isset($_SESSION["idUser"])) {
-                $nombre   = $_REQUEST["nombre"];
-                $apellido = $_REQUEST["apellido"];
-                $pais     = $_REQUEST["pais"];
+                $nombre   = $this->filtrarEntrada($_REQUEST["nombre"]);
+                $apellido = $this->filtrarEntrada($_REQUEST["apellido"]);
+                $pais     = $this->filtrarEntrada($_REQUEST["pais"]);
 
                 $result = $this->persona->insert($nombre, $apellido, $pais);
 
@@ -276,7 +278,7 @@
         public function borrarAutor() {
             // Comprobamos si el usuario está logueado
             if (isset($_SESSION["idUser"])) {
-                $idPersona = $_REQUEST["idPersona"];
+                $idPersona = $this->filtrarEntrada($_REQUEST["idPersona"]);
                 // Comprobamos si el autor tiene libros asociados
                 $numLibros = count($this->persona->getLibros($idPersona));
                 if ($numLibros > 0) {
@@ -319,10 +321,10 @@
         public function modificarAutor() {
             // Comprobamos si el usuario está logueado
             if (isset($_SESSION["idUser"])) {
-                $idPersona = $_REQUEST["idPersona"];
-                $nombre    = $_REQUEST["nombre"];
-                $apellido  = $_REQUEST["apellido"];
-                $pais      = $_REQUEST["pais"];
+                $idPersona = $this->filtrarEntrada($_REQUEST["idPersona"]);
+                $nombre    = $this->filtrarEntrada($_REQUEST["nombre"]);
+                $apellido  = $this->filtrarEntrada($_REQUEST["apellido"]);
+                $pais      = $this->filtrarEntrada($_REQUEST["pais"]);
 
                 $result = $this->persona->update($idPersona, $nombre, $apellido, $pais);
 
@@ -348,5 +350,21 @@
             $data["info"] = "Resultados de la búsqueda: <i>$textoBusqueda</i>";
             View::render("autor/all", $data);
         }
+
+        // ---------------------------------- FILTRO PARA LAS ENTRADAS ------------------------------
+        // Este método limpia las entradas que provienen de un formulario y hace una limpieza básica.
+        function filtrarEntrada($entrada) {
+            if (is_string($entrada)) {
+                // Elimina espacios en blanco al inicio y al final
+                $entrada = trim($entrada);
+                // Elimina barras invertidas (para evitar escapes no deseados)
+                $entrada = stripslashes($entrada);
+                // Convierte caracteres especiales en entidades HTML para evitar ataques por XSS
+                $entrada = htmlspecialchars($entrada, ENT_QUOTES, 'UTF-8');
+
+                // Se puede mejorar el método haciendo comprobaciones más exhaustivas
+            }
+            return $entrada;
+        }        
 
     } // class
